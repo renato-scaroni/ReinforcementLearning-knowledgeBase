@@ -1,0 +1,96 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\title{Summary and introduction to reinforcement learning}
+\author{Renato Scaroni}
+\date{January 2019}
+
+\usepackage{natbib}
+\usepackage{graphicx}
+
+\begin{document}
+
+\maketitle
+
+\section{What is reinforcement learning}
+
+% -  AI field inspired by trial and error aproach
+% - characterizes a problem, a class of solution methods and a field of study
+% - So, in short, a RL consider an agent trying to learn the best aproach in to a dynamic goal oriented problem
+% -  Is the closer to the way humans and other animals learn
+% - There must be an agent, a way to define the state of the environment and a set of actions that shall be taken over time. The actions affect the environment and the current state of the agent.
+% -  The path for task completion is obtained by acting over a number of states and maximizing the reward
+% - Takes into consideration the delayed reward, i.e. the reward over a number of iteration
+% - The actions aim to make the state of agent convey into a goal or goals.
+% - Reinforcement learning is formalized using ideas from dynamical systems theory.
+% - Usually formalized as optimal control of incompletely-known markov decision processes
+
+\paragraph{}
+In the AI research field, there are a number of different approaches to the machine learning problem, i.e. making a software able to replicate some kind of desired behaviour in a given situation based on training situations. This text focuses in one type of learning called reinforcement learning.
+
+\paragraph{}
+Reinforcement learning (from now on in this book also refered to as RL) deals with problems which structure may be described as an agent interacting with an environment over a period of time, aimming to achieve a goal. At each interaction with the world, the agent recieves a reward, which is a number that indicates how closer that single action takes the agent to its goal.
+
+\paragraph{}
+The idea of interacting with the world and then measuring the reward is close to how animals in general learn from the environment. The animal takes an action, generally based on its past experiences, and evaluates the satisfaction it got. But RL takes that idea further by taking into consideration the sum of the rewards in the long run, in a way that not only the immediate reward is important, but also the combination of actions.
+
+\paragraph{}
+So in short one can define RL as a situation where there is an agent interatcs with an environment during a period of time to achieve a goal. Beacuse of its dynamic nature, reinforcement learning is formalized using ideas from dynamical systems theory, usually as an optimal control of incompletely-known markov decision processes.
+
+\section{Reinforcement learning versus other types of learning}
+% - Supervised learning uses a set of labeled examples provided by an external knowledgable supervisor, from which the program calculates a rule that allow it to generalize over new data and decide what to do. this approach implies examples of desired behavior that are both correct and representative of all the situations in which the agent has to act
+% - Unsupervised learning uses a given set of unlabeled data to learn the underlying structure of that and then calculate a rule to separate them in categories to allow generalize over new data.
+% - Although reinforcement learning also does not expect labeled data, but it does not aim to discover an structure, it assumes iteration over time and maximize the reward on each iteration
+\paragraph{}
+Although there is no definitive definition of machine learning, a computer program is said to learn with an experience if its performance in a given task improves according to some measure after it has been exposed to that experience. Reinforcement learning is one approach to the learning problem, but there is other important approaches, namely Supervised and Unsupervised leaning.
+
+\paragraph{}
+Supervised learning consists in using labeled examples provided by a reliable external source, from which the software is able to associate characteristics of each data and a given label and then make decisions about new inputs. This approach requires examples of desired behavior that are both correct and representative of all the situations in which the agent has to act.
+
+\paragraph{}
+Unsupervised learning, on the other hand, operates based on an unlabeled data set, by taking into consideration similarities and differences in the data and reacting to these characteristics to make decisions about new inputs.
+
+\paragraph{}
+Both supervised and unsupervised aproaches to machine learning usually assume static environment of action, which means that if there is a change in the conditions of the problem there would need the program to be trained again. Also both approaches assume some characteristics about the data so they can actually act over new situations.
+
+\paragraph{}
+Different from supervised and unsupervised, the reinforcement learning approach focuses on dynamic problems, which means that each interaction of the agent with the environment may lead to a new state with new action possibilities. Also, on its pure form, RL does not make any kind of assumption about the structure of the data, it just maximizes the reward of each state iteratively.
+
+\section{Particularities of the reinforcement learning}
+% - In a RL problem the agent must act despite lacking information about the environment.
+% - RL relies on the ideas of exploit and explore, which means that to maximize the reward the the agent must look for the best among the ones it have already tried and search for the best, but it has to discover such actions and it is done through exploring new possibilities.
+% - The exploit-explore trade-off is then an exclusive issue from RL
+% - The RL aproach always consider de problem of goal-seeking agent as a whole, which means, even if broken in smaller subproblems, the RL always aims towards the main goal
+% - There may be even interface with other types of learning, meaning subproblems that are solved using other techniques such as supervised learning, but all this subproblems play clear role towards the agent goal
+% - The definition of agent and environment are also broader then just a complete organism, which allow us to tackle a problem from various perspectives. For example that one can think the problem of a explorer robot from the perspective of the power monitoring system, on which this system only is the agent as it measures the battery levels and sends the commands to the robot's control system. The environment would be then the rest of the robot along with robot`s environment.
+\paragraph{}
+When an agent is looking for the best action on a given state it is actually looking on a range of actions and respective results that reflects its previous experiences about the situation and the choices it has made in the past. So the more combinations of tasks it has tried (exploration), the better a future choice will be (exploitation), but also higher will be the computational consts involved. This situation is called exploitation-exploration trade-off and it is a key chalenge on reinforcement learning, beacuse it implies considering as few action combinations as possible, but keeping the reward highest as possible.
+
+\paragraph{}
+Other particularity of RL is that it always consider the problem of goal-seeking agent as a whole, which means, even if broken in smaller subproblems, the RL systems always aims towards the main goal. It does not exclude the existance of smaller subproblems, nor the application of other techniques, even other types of learning on these subproblems, but all they play clear role towards the agent goal.
+
+\paragraph{}
+It is also worth mentioning that the definition of agent and environment are also broader then just a complete organism, which allow us to tackle a problem from various perspectives. For example, the problem of a explorer robot can be tackled from the perspective of its power monitoring system, on which this system only is the agent, as it measures the battery levels and sends the commands to the robot's control system. The environment would be then the rest of the robot along with robot`s environment.
+
+\section{Elements of reinforcement learning}
+\paragraph{}
+Beyond the agent and the environment, a RL system usually is based on three other elements to be defined: a policy, a reward signal, a value function. Optionally one may also define a model for the environment.
+\paragraph{}
+A policy is a mapping of actions that should be taken in each state so the agent gets closer to it's goal. May be stochastic, which means that it maps the probability of which each action must be considered by the agent.
+\paragraph{}
+The reward signal is a number representing the imediate feedback of the agent actions, meaning if it was a choice that aprroximated it to the main goal os not. The idea of a reward is very much connected to the idea of satisfaction and frustration, if an action takes the agent closer to it's goal, then the satisfaction is high, if an action momentarily pushes the agent away from it's goal, the frustration is high.
+\paragraph{}
+The value function returns, for each state, the expected acumulated value of reward in the long run from that state onward. It can be thought as the overall sensation after a number of events, for example, a slot machine has really high chance of failure and each failure is a frustration, but after a number of tries there is a chance of hitting the jackpot and for some people that feeling is so overwhelminly satisfying that it overcompesates the failure sensation. It is pertinent to note that a value function is intrinsically related to the defined reward signal as the values are roughly a sum of expected rewards over a number of steps.
+\paragraph{}
+The values are the base for deciding which action to take next as they take into consideration not only the immediate reward for taking a given action but also the expected outcomes and how much that sequence of probable outcomes takes the agent closer to its goal. The higher the value of a state, the better. However the value of a state is somewhat difficult to calculate once it is obtained as a result of the sequence of actions taken and the outcome of each one of them. So it can be estimated and re-estimated from the sequence of observations the agent makes. Then the way to estimate the value is one of the core aspects when designing a reinforcement lerning algorithm.
+\paragraph{}
+The last element of a RL system is a model to describe the environment. This structure is used to infere future states and rewards so it is possible to consider situations that have not happened yet, to decide de course of action. This approach is called model-based method and provides the system a method to optimize the choices by predicting the outcome of a certain action without actually taking them. 
+\paragraph{}
+There are other approaches to the reinforcement learning problem, such as the ones based on genetic algorithms and genetic programming, called evolutionary methods. These methods do not estimate a value function, they apply different policies to different instances of the environment and choose the one that yields more rewards. These approaches, however, does not take into consideration the effects of each action on the environment over time and ignore a lot of useful assumptions from RL problems, such as the states the agent passed through and the fact that the policy is actually a function. These assumptions sometimes make the search more efficient and accurate.
+
+\section{Conclusion}
+\paragraph{}
+As opposed to other types of learning, reinforcement learning is concearned with dynamic goal-oriented learning and decision making problems, and focuses on learning by iterating over an environment and measuring its states. This type of problems appear extensively in many fields and its study are of interest of many areas beyond engineering, such as neurosciences and psychology.
+
+
+\end{document}
