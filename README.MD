@@ -21,6 +21,7 @@ This repository is a place to track and centralize the knowledge i have gathered
 
 5. Deep RL Bootcamp
     * [Video lectures](https://www.youtube.com/playlist?list=PLFihX_3MLxS8VY0y851LZ6TAZWUZeQ0yN)
+    * [Course slides and info](https://sites.google.com/view/deep-rl-bootcamp/lectures)
     
 ## 2. Online Articles and content
 
@@ -42,4 +43,6 @@ This repository is a place to track and centralize the knowledge i have gathered
 
 1. Reinforcement learning an introduction by Richard S. Sutton and Andrew G. Barto
    * [Info and download](http://incompleteideas.net/book/the-book.html)
-
+2. Algorithms for Reinforcement Learning by Csaba Szepesvári
+   * [Info](https://sites.ualberta.ca/~szepesva/RLBook.html)
+   * [Download](https://sites.ualberta.ca/~szepesva/papers/RLAlgsInMDPs.pdf)
