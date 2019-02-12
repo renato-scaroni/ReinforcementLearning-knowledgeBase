@@ -1,0 +1,29 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\title{The Markov decision Process and RL}
+\author{Renato Scaroni}
+\date{February 2019}
+
+\usepackage{natbib}
+\usepackage{graphicx}
+
+\begin{document}
+
+\maketitle
+
+\section{States and the Markovian property}
+\paragraph{}
+One of the main concepts in reinforcement learning is the idea of a state which is a representation of the environment in a given timestep, for short let $S_t$ be such state. It is associated with each state $S_t$ the set $\mathcal{A}(S_t)$ of all the possible actions to be taken at $S_t$, and for each action there is a result state $S_{t+1}$. It is defined the probability $\mathcal{P}[S_{t+1}|S_t]$ as the probability of a given state $S_{t+1}$ to be accessed from a state $S_t$.
+\paragraph{}
+A state is said to be a markov state (or an information state) if it contains all the information needed to compute the next state. Mathematically is means:
+\[\mathcal{P}[S_{t+1}|S_t] = \mathcal{P}[S_{t+1}|S_{1}, S_{2}, ..., S_{t}]\]
+In other words it means that the only information we need to predict the possible states resulting of an agent interaction with the environment is its current state, and then it simplifies a lot how to compute the sequence of interactions and outcomes. Assuring the validation of the markovian property for every state in an RL problem allows us to formalize it throught a mathematical famework called markovian decision process (or MDP).
+\paragraph{}
+The state referred to in this representation is actually a combination of the actual environment state that the agent can observe on a given time. So the way a state is represented internally on the agent and then computed by RL algorithms depends on assumptions made when modelling the problem and its limitations. For example an agent might be able to only partially observe the environment, then the state transition might be probabilistic. Also the fact that a state is Markov or not also is an assumption that depends on the states representation. 
+
+\section{Conclusion}
+\paragraph{}
+
+
+\end{document}
