@@ -15,9 +15,6 @@ STICK = 1
 PLAYER = 0
 DEALER = 1
 
-# fixing random seed
-random.seed(10)
-
 class State:
     def __init__(self):
         self.random = random.Random()
@@ -51,7 +48,7 @@ class DefaultDealerPolicy(Policy):
             return STICK
 
         return HIT
-    
+
 class DefaultPlayerPolicy(Policy):
     def act(self, state):
         if state.playerPoints >= 20:
@@ -112,6 +109,7 @@ class Game:
             dealerAction = self.dealerPolicy.act(state)
 
     def SimulateEpisode(self):
+        self.RandomReset()
         episodes = []
         t = 0
         self.currentState = State()
@@ -130,3 +128,13 @@ class Game:
 
         episodes[-1].reward = self.rewardFunction(self.currentState)
         return episodes
+
+    def SimulateMultipleEpisodes(self, n):
+        sample = []
+        for i in range(n):
+            sample.append(self.SimulateEpisode())
+
+        return sample
+
+    def RandomReset(self):
+        random.seed(10)
