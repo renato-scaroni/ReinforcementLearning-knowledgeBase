@@ -20,12 +20,16 @@ class State:
         self.random = random.Random()
         self.playerPoints = random.randint(CARD_MIN_ABS_VALUE, CARD_MAX_ABS_VALUE)
         self.dealerPoints = random.randint(CARD_MIN_ABS_VALUE, CARD_MAX_ABS_VALUE)
+        self.isTerminal = False
 
     def updateState(self, card, agent):
         if agent == PLAYER:
             self.playerPoints += card.value
         else:
             self.dealerPoints += card.value
+
+    def __str__(self):
+        return "(Pl, De) = ({0}, {1})".format(self.playerPoints, self.dealerPoints)
 
 class Card(object):
     def __init__ (self):
@@ -63,7 +67,7 @@ class EpisodeStep:
         self.reward = reward
         self.timeStep = timeStep
     def __str__(self):
-        return "(S, A, R, t) = ({0}, {1}, {2}, {3})".format(str(self.state), "hit" if self.action == 0 else "stick" , str(self.reward), self.timeStep)
+        return "(S, A, R, t) = ({0}, {1}, {2}, {3})".format(str(self.state), "hit" if self.action == 0 else "stick", str(self.reward), self.timeStep)
 
 
 class Game:
@@ -72,6 +76,7 @@ class Game:
         self.playerPolicy = playerPolicy
         self.dealerPolicy = DefaultDealerPolicy()
         self.debug = debug
+        self.RandomReset()
 
 
     def rewardFunction(self, state):
@@ -79,7 +84,7 @@ class Game:
             return -1
         if state.dealerPoints > 21 or state.dealerPoints < 1:
             return 1
-        if not self.stateIsTerminal(state):
+        if not state.isTerminal:
             return 0
         if state.dealerPoints == state.playerPoints:
             return 0
@@ -88,49 +93,46 @@ class Game:
         else:
             return -1
 
-    def stateIsTerminal(self, state):
-        if state.playerPoints > 21 or state.playerPoints < 1:
-            return True
-        if state.dealerPoints > 21 or state.dealerPoints < 1:
-            return True
-        return False
-
-    def step (self, agent, action, state):
-        if self.debug: print(state.playerPoints, state.dealerPoints)
-        card = Card()
-        if self.debug: print ("{}:".format("player" if agent == 0 else "dealer"), card.value, card.color)
-        state.updateState(card, agent)
-        return self.rewardFunction(state)
-
-    def SimulateDealerPlay(self, state):
-        dealerAction = self.dealerPolicy.act(state)
-        while dealerAction == HIT and not self.stateIsTerminal(state):
-            self.step(DEALER, dealerAction, state)
+    def step (self, state):
+        playerAction = self.playerPolicy.act(state)
+        if playerAction == HIT and (state.playerPoints <= 21 or state.playerPoints > 0):
+            card = Card()
+            if self.debug: print ("Player Hit:", card.value, card.color)
+            state.updateState(card, PLAYER)
+            if self.debug: print("Current state:", state.playerPoints, state.dealerPoints)
+            if state.playerPoints > 21 or state.playerPoints < 1:
+                state.isTerminal = True
+        elif state.dealerPoints <= 21 or state.dealerPoints > 0:
+            if self.debug: print ("Player stick", str(state))
             dealerAction = self.dealerPolicy.act(state)
+            while dealerAction == HIT:
+                card = Card()
+                if self.debug: print ("Dealer Hit:", card.value, card.color)
+                state.updateState(card, DEALER)
+                if self.debug: print("Current state:", state.playerPoints, state.dealerPoints)
+                dealerAction = self.dealerPolicy.act(state)
+            state.isTerminal = True
+
+        return self.rewardFunction(state), playerAction
 
     def SimulateEpisode(self):
-        self.RandomReset()
         episodes = []
         t = 0
         self.currentState = State()
-        playerAction = self.playerPolicy.act(self.currentState)
-        while playerAction == HIT and not self.stateIsTerminal(self.currentState):
+        if self.debug: print("Initial state:", self.currentState.playerPoints, self.currentState.dealerPoints)
+        while not self.currentState.isTerminal:
             stateTuple = (self.currentState.playerPoints, self.currentState.dealerPoints)
-            reward = self.step(PLAYER, playerAction, self.currentState)
-            episodes.append(EpisodeStep(stateTuple, playerAction, reward, t))
+            reward, playerAction = self.step(self.currentState)
             t += 1
-            playerAction = self.playerPolicy.act(self.currentState)
-
-
-        self.SimulateDealerPlay(self.currentState)
+            episodes.append(EpisodeStep(stateTuple, playerAction, reward, t))
 
         if self.debug: print("End state:", self.currentState.playerPoints, self.currentState.dealerPoints)
 
-        episodes[-1].reward = self.rewardFunction(self.currentState)
         return episodes
 
     def SimulateMultipleEpisodes(self, n):
         sample = []
+        self.RandomReset()
         for i in range(n):
             sample.append(self.SimulateEpisode())
 
