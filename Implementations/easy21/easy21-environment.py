@@ -22,6 +22,9 @@ class State:
         self.dealerPoints = random.randint(CARD_MIN_ABS_VALUE, CARD_MAX_ABS_VALUE)
         self.isTerminal = False
 
+    def toStateTuple(self):
+        return (self.playerPoints, self.dealerPoints)
+
     def updateState(self, card, agent):
         if agent == PLAYER:
             self.playerPoints += card.value
@@ -120,7 +123,7 @@ class Game:
         self.currentState = State()
         if self.debug: print("Initial state:", self.currentState.playerPoints, self.currentState.dealerPoints)
         while not self.currentState.isTerminal:
-            stateTuple = (self.currentState.playerPoints, self.currentState.dealerPoints)
+            stateTuple = self.currentState.toStateTuple()
             playerAction = self.playerPolicy.act(self.currentState)
             reward = self.step(self.currentState, playerAction)
             t += 1
