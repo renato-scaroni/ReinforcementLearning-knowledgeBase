@@ -115,7 +115,7 @@ class Game:
                 dealerAction = self.dealerPolicy.act(state)
             state.isTerminal = True
 
-        return self.rewardFunction(state)
+        return self.rewardFunction(state), state
 
     def SimulateEpisode(self):
         episodes = []
@@ -123,9 +123,9 @@ class Game:
         self.currentState = State()
         if self.debug: print("Initial state:", self.currentState.playerPoints, self.currentState.dealerPoints)
         while not self.currentState.isTerminal:
-            stateTuple = self.currentState.toStateTuple()
+            stateTuple = (self.currentState.playerPoints, self.currentState.dealerPoints)
             playerAction = self.playerPolicy.act(self.currentState)
-            reward = self.step(self.currentState, playerAction)
+            reward, _ = self.step(self.currentState, playerAction)
             t += 1
             episodes.append(EpisodeStep(stateTuple, playerAction, reward, t))
 
