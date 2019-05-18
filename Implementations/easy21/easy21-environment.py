@@ -71,7 +71,7 @@ class EpisodeStep:
 
 
 class Game:
-    def __init__(self, playerPolicy, debug = False):
+    def __init__(self, playerPolicy=None, debug=False):
         self.currentState = State()
         self.playerPolicy = playerPolicy
         self.dealerPolicy = DefaultDealerPolicy()
@@ -93,8 +93,7 @@ class Game:
         else:
             return -1
 
-    def step (self, state):
-        playerAction = self.playerPolicy.act(state)
+    def step (self, state, playerAction):
         if playerAction == HIT and (state.playerPoints <= 21 or state.playerPoints > 0):
             card = Card()
             if self.debug: print ("Player Hit:", card.value, card.color)
@@ -113,7 +112,7 @@ class Game:
                 dealerAction = self.dealerPolicy.act(state)
             state.isTerminal = True
 
-        return self.rewardFunction(state), playerAction
+        return self.rewardFunction(state)
 
     def SimulateEpisode(self):
         episodes = []
@@ -122,7 +121,8 @@ class Game:
         if self.debug: print("Initial state:", self.currentState.playerPoints, self.currentState.dealerPoints)
         while not self.currentState.isTerminal:
             stateTuple = (self.currentState.playerPoints, self.currentState.dealerPoints)
-            reward, playerAction = self.step(self.currentState)
+            playerAction = self.playerPolicy.act(self.currentState)
+            reward = self.step(self.currentState, playerAction)
             t += 1
             episodes.append(EpisodeStep(stateTuple, playerAction, reward, t))
 
