@@ -336,7 +336,7 @@ def MonteCarloControl(episodes, gamma=1, n0 = 100, everyVisit=True):
                 playerAction = random.randint(0, 1)
             else:
                 playerAction = argmaxA(q, stateTuple)
-            reward = game.step(S, playerAction)
+            reward, _ = game.step(S, playerAction)
             t += 1
             episode.append(EpisodeStep(stateTuple, playerAction, reward, t))
         for e in episode:
@@ -352,7 +352,7 @@ def MonteCarloControl(episodes, gamma=1, n0 = 100, everyVisit=True):
     return q
 
 #%%
-numberOfEpisodes = 1000000
+numberOfEpisodes = 100000
 q1,q2  = MonteCarloControl(numberOfEpisodes), MonteCarloControl(numberOfEpisodes, False)
 
 # plotValueFunction(extractValueFunction(q))
@@ -401,7 +401,6 @@ def SARSA(episodes, gamma=1, n0 = 100, everyVisit=True):
             S = SPrime
     return q
 #%%
-numberOfEpisodes = 10000
 sizes = [1, 10, 100, 1000, 10000, 100000]
 vStars = []
 for numberOfEpisodes in sizes:
@@ -436,7 +435,6 @@ def QLearning(episodes, gamma=1, n0 = 100, everyVisit=True):
 
     return q
 #%%
-numberOfEpisodes = 10000
 sizes = [1, 10, 100, 1000, 10000, 100000]
 vStars = []
 for numberOfEpisodes in sizes:
