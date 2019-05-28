@@ -67,11 +67,11 @@ x_j = 1,\, if\; i = j
 $$
 
 - The main idea is to substitute the sample parts of the algorithms by $\hat v(S_t, \bold{w})\nabla_\bold{w} \hat v(S_t, \bold{w})$ so now the updates would be $V(S_t) \leftarrow V(S_t) + \Delta \bold{w}$, where:
-    - For MC: $\Delta \bold{w} = \alpha (G_t - \hat v(S_t, \bold{w})\nabla_\bold{w} \hat v(S_t, \bold{w}))$
-    - For TD(0): $\Delta \bold{w} = \alpha (R_{t+1} + \gamma \hat v(S_{t+1}, \bold{w}) - \hat v(S_t, \bold{w})\nabla_\bold{w} \hat v(S_t, \bold{w}))$
-    - For forward view TD($\lambda$): $\Delta \bold{w} = \alpha (G_t^\lambda - \hat v(S_t, \bold{w})\nabla_\bold{w} \hat v(S_t, \bold{w}))$
+    - For MC: $\Delta \bold{w} = \alpha \, [ G_t - \hat v(S_t, \bold{w})\nabla_\bold{w}]\, \hat v(S_t, \bold{w})$
+    - For TD(0): $\Delta \bold{w} = \alpha \, [R_{t+1} + \gamma \hat v(S_{t+1}, \bold{w}) - \hat v(S_t, \bold{w})\nabla_\bold{w}] \, \hat v(S_t, \bold{w})$
+    - For forward view TD($\lambda$): $\Delta \bold{w} = \alpha \, [G_t^\lambda - \hat v(S_t, \bold{w})\nabla_\bold{w}] \, \hat v(S_t, \bold{w})$
     - For backward view TD($\lambda$):
-        - $\delta_t = R_{t+1} + \gamma \hat v(S_{t+1}, \bold{w}) - \hat v(S_t, \bold{w})\nabla_\bold{w} \hat v(S_t, \bold{w})$
+        - $\delta_t = R_{t+1} + \gamma \hat v(S_{t+1}, \bold{w}) - \hat v(S_t, \bold{w})$
         - $E_t = \gamma\lambda E_{t-1} + x(S_t)$
         - $\Delta \bold{w} = \alpha \delta_t E_t$
 
