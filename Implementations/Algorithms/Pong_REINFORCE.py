@@ -36,11 +36,7 @@ class PolicyNetwork(nn.Module):
         I[I == 144] = 0 # erase background (background type 1)
         I[I == 109] = 0 # erase background (background type 2)
         I[I != 0] = 1 # everything else (paddles, ball) just set to 1
-        print (I[I==1])
-        sys.exit()
-        # return torch.FloatTensor(I.astype(np.float).ravel())
         return torch.from_numpy(I.astype(np.float).ravel()).float().unsqueeze(0)
-
 
     def forward(self, state):
         state = self.prepro(state)
