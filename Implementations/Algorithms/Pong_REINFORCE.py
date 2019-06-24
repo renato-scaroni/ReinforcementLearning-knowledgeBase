@@ -54,12 +54,18 @@ class PolicyNetwork(nn.Module):
 
 class Agent:
 
-    def __init__(self, env, learning_rate=3e-4):
+    def __init__(self, env, learning_rate=3e-4, save_plot=True, show_plot=False):
         self.env = env
+        self.show_plot = show_plot
+        self.save_plot = save_plot
+
         self.num_actions = self.env.action_space.n
         self.policy_network = PolicyNetwork(6400, self.env.action_space.n)
-        print("using cuda",torch.cuda.is_available())
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        print("Looking for GPU support...")
+        using_cuda = torch.cuda.is_available()
+        self.device = torch.device("cuda:0" if using_cuda else "cpu")
+        print("using cuda:",using_cuda)
         self.policy_network.set_device(self.device)
 
 #         if cuda:
@@ -106,6 +112,7 @@ class Agent:
         self.optimizer.step()
 
     def train(self, max_episode=3000, max_step=200):
+        print("Trainning agent for {} episodes".format(episodes))
         numsteps = []
         avg_numsteps = []
         episode_rewards = []
@@ -134,13 +141,15 @@ class Agent:
                     avg_numsteps.append(np.mean(numsteps[-10:]))
                     episode_rewards.append(episode_reward)
                     break
-
+        print("Avg reward:",sum(episode_rewards)/max_episode)
         plt.plot(episode_rewards)
         plt.xlabel('Episode')
         plt.ylabel('Reward')
-        # plt.show()
-        plt.savefig('pong_{}_episodes_{}.png'.format(max_episode,
-            int(datetime.timestamp(datetime.now()))))
+        if self.show_plot:
+            plt.show()
+        if self.save_plot:
+            plt.savefig('pong_{}_episodes_{}.png'.format(max_episode,
+                int(datetime.timestamp(datetime.now()))))
 
 
         return episode_rewards
@@ -155,5 +164,4 @@ if __name__ == '__main__':
     agent = Agent(env)
     episodes = int(sys.argv[1])
     agent.set_seeds(42)
-    print("episodes",episodes)
     rewards = agent.train(episodes,sys.maxsize)
