@@ -145,8 +145,6 @@ class Agent:
 
         return episode_rewards
 
-#         plt.savefig('pong_{}_episodes_{}.png'.format(max_episode, int(datetime.timestamp(datetime.now()))))
-
     def set_seeds(self, s):
         np.random.seed(s)
         torch.manual_seed(s)
