@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 from PIL import Image as img
 from datetime import datetime
 import random
-import gym
+
+from torch.distributions import Categorical
 
 # Constants
 GAMMA = 0.9
@@ -54,13 +55,16 @@ class PolicyNetwork(nn.Module):
 
 class Agent:
 
-    def __init__(self, env, learning_rate=3e-4, save_plot=True, show_plot=False):
+    def __init__(self, env, learning_rate=1e-3, save_plot=True, show_plot=False, torch_rand=True,
+                 baseline=None):
         self.env = env
         self.show_plot = show_plot
         self.save_plot = save_plot
 
         self.num_actions = self.env.action_space.n
         self.policy_network = PolicyNetwork(6400, self.env.action_space.n)
+
+        self.torch_rand = torch_rand
 
         print("Looking for GPU support...")
         using_cuda = torch.cuda.is_available()
@@ -77,16 +81,15 @@ class Agent:
         self.optimizer = optim.Adam(self.policy_network.parameters(), lr=learning_rate)
 
     def get_action(self, state):
-        # TODO: sample from pytorch (this is a best practice)
-        # from torch.distributions import Categorical
-        # logits = self.policy_network(state)
-        # dist = Categorical(logits=logits)
-        # action = dist.sample()
-        # log_prob = dist.log_prob(action)
-
-        probs = self.policy_network(state).cpu()
-        highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
-        log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
+        if self.torch_rand:
+            logits = self.policy_network(state)
+            dist = Categorical(logits=logits)
+            highest_prob_action = dist.sample()
+            log_prob = dist.log_prob(highest_prob_action)
+        else:
+            probs = self.policy_network(state).cpu()
+            highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
+            log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
 
         return highest_prob_action, log_prob
 
@@ -162,6 +165,11 @@ class Agent:
 if __name__ == '__main__':
     env = gym.make("Pong-v0")
     agent = Agent(env)
+    trand = False if len(sys.argv) > 2 and sys.argv[2] == 0 else True
+    print("Using Gym random?", trand)
+    base = None if len(sys.argv) <= 3 else sys.argv[3]
+    print("Using baseline?", base is not None)
+    agent = Agent(env, torch_rand=trand, baseline=base)
     episodes = int(sys.argv[1])
     agent.set_seeds(42)
     rewards = agent.train(episodes,sys.maxsize)
