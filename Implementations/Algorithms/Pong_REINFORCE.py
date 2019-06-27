@@ -17,6 +17,8 @@ from torch.distributions import Categorical
 
 # Constants
 GAMMA = 0.9
+WIDTH = 98
+HEIGHT = 80
 
 def save_image(I, imgName):
     # data = np.zeros((h, w, 3), dtype=np.uint8)
@@ -89,32 +91,81 @@ class Agent:
 
         return highest_prob_action, log_prob
 
-    def update_policy(self, rewards, log_probs):
+    # Adaptive Reinforcement Baseline.
+    # R. J. Williams. Simple statistical gradient-following algorithms for connectionist reinforcement learning
+    @staticmethod
+    def adaptive_baseline(last_return, last_baseline):
+        return GAMMA*last_return + (1-GAMMA)*last_baseline
+
+    # Optimal Constant Baseline (with two-sample approximation)
+    # J. Peters, S. Schaal. Policy gradient methods for robotics
+    @staticmethod
+    def optimal_baseline(h, g, p, q):
+        if q is None or p is None:
+            return 0
+        s, t = np.array(p), np.array(q)
+        s = np.inner(s, s).sum()
+        t = np.inner(t, t).sum()
+        return (g*s + h*t)/(s+t)
+
+    # Parameters:
+    #  - rewards: array of episode rewards
+    #  - log_probs: array of episode logprobs
+    #  - last_g: last return
+    #  - last_b: last baseline
+    #  - last_log_probs: last episode's logprobs
+    # Returns:
+    #  - last return
+    #  - last baseline
+    #  - last log_probs
+    def update_policy(self, rewards, log_probs, last_g, last_b, last_log_probs):
         discounted_rewards = []
+        L = []
+        g0 = 0
 
         for t in range(len(rewards)):
+            gamma = GAMMA
             Gt = 0
-            for pw, r in enumerate(rewards[t:]):
-                Gt = Gt + GAMMA**pw * r
+            for r in rewards[t:]:
+                Gt = Gt + gamma * r
+                gamma *= GAMMA
             discounted_rewards.append(Gt)
+            if self.baseline is not None:
+                break
+        g0 = discounted_rewards[0]
 
         discounted_rewards = torch.FloatTensor(discounted_rewards).to(self.device)
         discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-9) # normalize discounted rewards
 
         policy_gradient = []
         for log_prob, Gt in zip(log_probs, discounted_rewards):
-            policy_gradient.append(-log_prob * Gt)
+            v = -log_prob
+            L.append(v.cpu().detach().numpy())
+            if self.baseline is None:
+                v += Gt
+            policy_gradient.append(v)
+        policy_gradient = torch.stack(policy_gradient).sum()
+        b = 0
+        if self.baseline is not None:
+            if self.baseline == 'adaptive':
+                b = Agent.adaptive_baseline(last_g, last_b)
+            elif self.baseline == 'optimal':
+                b = Agent.optimal_baseline(g0, last_g, L, last_log_probs)
+            policy_gradient = policy_gradient * (g0 - b)
 
         self.optimizer.zero_grad()
-        policy_gradient = torch.stack(policy_gradient).sum().to(self.device)
+        policy_gradient = policy_gradient.sum().to(self.device)
         policy_gradient.backward()
         self.optimizer.step()
+
+        return g0, b, L
 
     def train(self, max_episode=3000, max_step=200):
         print("Trainning agent for {} episodes".format(episodes))
         numsteps = []
         avg_numsteps = []
         episode_rewards = []
+        g, b, L = 0, 0, None
         for episode in range(max_episode):
             state = env.reset()
             log_probs = []
@@ -134,7 +185,7 @@ class Agent:
                 state = new_state
 
                 if done:
-                    self.update_policy(rewards, log_probs)
+                    g, b, L = self.update_policy(rewards, log_probs, g, b, L)
                     print("episode " + str(episode) + ": " + str(episode_reward))
                     numsteps.append(steps)
                     avg_numsteps.append(np.mean(numsteps[-10:]))
@@ -189,10 +240,6 @@ def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale
     if frame_stack:
         env = atari_wrappers.FrameStack(env, 2)
     return DiffFrame(env)
-
-
-WIDTH = 98
-HEIGHT = 80
 
 if __name__ == '__main__':
     env = wrap_diff(gym.make("Pong-v0"))
