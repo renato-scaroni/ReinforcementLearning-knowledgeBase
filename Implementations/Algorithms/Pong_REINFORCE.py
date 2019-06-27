@@ -11,11 +11,22 @@ import matplotlib.pyplot as plt
 from PIL import Image as img
 from datetime import datetime
 import random
+import atari_wrappers
 
 from torch.distributions import Categorical
 
 # Constants
 GAMMA = 0.9
+
+def save_image(I, imgName):
+    # data = np.zeros((h, w, 3), dtype=np.uint8)
+    # data[256, 256] = [255, 0, 0]
+    pic = img.fromarray(I)
+    pic.save(imgName+".png")
+    # pic.show()
+
+def to_torch(u):
+    return torch.from_numpy(u).float().unsqueeze(0)
 
 class PolicyNetwork(nn.Module):
 
@@ -29,25 +40,9 @@ class PolicyNetwork(nn.Module):
         self.device = device
         self.to(device)
 
-    def save_image(self, I, imgName):
-        # data = np.zeros((h, w, 3), dtype=np.uint8)
-        # data[256, 256] = [255, 0, 0]
-        pic = img.fromarray(I)
-        pic.save(imgName+".png")
-        # pic.show()
-
-    def prepro(self, I):
-        """ prepro 210x160x3 uint8 frame into 6400 (80x80) 1D float vector """
-        I = I[35:195] # crop
-        I = I[::2,::2,0] # downsample by factor of 2
-        I[I == 144] = 0 # erase background (background type 1)
-        I[I == 109] = 0 # erase background (background type 2)
-        I[I != 0] = 1 # everything else (paddles, ball) just set to 1
-        return torch.from_numpy(I.astype(np.float).ravel()).float().unsqueeze(0)
-
     def forward(self, state):
-        state = self.prepro(state).to(self.device)
-        x = F.relu(self.linear1(state))
+        v = to_torch(state).to(self.device)
+        x = F.relu(self.linear1(v))
         # TODO: when refactor get_action remember to
         # take this softmax function away
         x = F.softmax(self.linear2(x), dim=1)
@@ -62,9 +57,10 @@ class Agent:
         self.save_plot = save_plot
 
         self.num_actions = self.env.action_space.n
-        self.policy_network = PolicyNetwork(6400, self.env.action_space.n)
+        self.policy_network = PolicyNetwork(WIDTH*HEIGHT, self.env.action_space.n)
 
         self.torch_rand = torch_rand
+        self.baseline = baseline
 
         print("Looking for GPU support...")
         using_cuda = torch.cuda.is_available()
@@ -162,9 +158,44 @@ class Agent:
         torch.manual_seed(s)
         random.seed(s)
 
+class DiffFrame(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    @staticmethod
+    def prepro(I):
+        """ prepro 210x160x3 uint8 frame into 7840 (98x80) 1D float vector """
+        I = I[:195] # crop
+        I = I[::2,::2,0] # downsample by factor of 2
+        I[I == 144] = 0 # erase background (background type 1)
+        I[I == 109] = 0 # erase background (background type 2)
+        I[I != 0] = 1 # everything else (paddles, ball) just set to 1
+        return I
+
+    def observation(self, obs):
+        obs = np.array(obs)
+        I, J = DiffFrame.prepro(obs[:,:,0:3]), DiffFrame.prepro(obs[:,:,3:6])
+        return ((J-I).astype(np.float).ravel()+1)/2.0
+
+def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True):
+    """Configure environment for DeepMind-style Atari.
+    """
+    # if episode_life:
+        # env = atari_wrappers.EpisodicLifeEnv(env)
+    # if scale:
+        # env = atari_wrappers.ScaledFloatFrame(env)
+    # if clip_rewards:
+        # env = atari_wrappers.ClipRewardEnv(env)
+    if frame_stack:
+        env = atari_wrappers.FrameStack(env, 2)
+    return DiffFrame(env)
+
+
+WIDTH = 98
+HEIGHT = 80
+
 if __name__ == '__main__':
-    env = gym.make("Pong-v0")
-    agent = Agent(env)
+    env = wrap_diff(gym.make("Pong-v0"))
     trand = False if len(sys.argv) > 2 and sys.argv[2] == 0 else True
     print("Using Gym random?", trand)
     base = None if len(sys.argv) <= 3 else sys.argv[3]
