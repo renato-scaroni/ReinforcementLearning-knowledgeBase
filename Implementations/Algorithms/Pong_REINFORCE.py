@@ -201,6 +201,7 @@ class Agent:
                     break
 
         self.plot(episode_rewards)
+        self.save_model()
 
     def set_seeds(self, s):
         np.random.seed(s)
