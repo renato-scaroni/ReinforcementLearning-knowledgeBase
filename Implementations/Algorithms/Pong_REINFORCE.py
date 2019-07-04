@@ -12,6 +12,10 @@ from PIL import Image as img
 from datetime import datetime
 import random
 import gym
+from statistics import stdev
+import csv
+from Pong_REINFORCE_config import Config
+import os
 
 # Constants
 GAMMA = 0.9
@@ -54,27 +58,44 @@ class PolicyNetwork(nn.Module):
 
 class Agent:
 
-    def __init__(self, env, learning_rate=3e-4, save_plot=True, show_plot=False):
+    def __init__(self, env, config):
+        # Initialize attributes from parameters
         self.env = env
-        self.show_plot = show_plot
-        self.save_plot = save_plot
+        self.save_plot = config.save_plot
+        self.show_plot = config.show_plot
+        self.log_window_size = config.log_window_size
+        self.log_flush_freq = config.log_flush_freq
+        self.model_path = config.model_path
+        self.override_model = config.override_model
 
+        # Create network
         self.num_actions = self.env.action_space.n
         self.policy_network = PolicyNetwork(6400, self.env.action_space.n)
 
+        # Set network to compute using cuda
         print("Looking for GPU support...")
         using_cuda = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if using_cuda else "cpu")
         print("using cuda:",using_cuda)
         self.policy_network.set_device(self.device)
 
-#         if cuda:
-#             self.policy_network.cuda()
-#             self.device = torch.device("cuda:0") # Uncomment this to run on GPU
-#         else:
-#             self.device = torch.device("cpu")
+        # Initializes the optimizer
+        self.optimizer = optim.Adam(self.policy_network.parameters(), lr=config.learning_rate)
 
-        self.optimizer = optim.Adam(self.policy_network.parameters(), lr=learning_rate)
+        # Loads model from file if it exists
+        if config.use_loaded_model and os.path.exists(os.path.dirname(self.model_path)):
+            checkpoint = torch.load(self.model_path)
+            self.policy_network.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.policy_network.eval()
+
+    def save_model(self):
+        if not os.path.exists(os.path.dirname(self.model_path)) and self.override_model:
+            os.makedirs(os.path.dirname(self.model_path))
+            torch.save({
+                        'model_state_dict': self.policy_network.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        }, self.model_path)
 
     def get_action(self, state):
         # TODO: sample from pytorch (this is a best practice)
@@ -111,11 +132,48 @@ class Agent:
         policy_gradient.backward()
         self.optimizer.step()
 
+    def generate_log(self, episode_rewards, log_writer, window_size=100):
+        if not log_writer == None:
+            episode_count = len(episode_rewards)
+            episode_window = episode_rewards[-window_size:]
+            episode_window_mean = sum(episode_window)/min(episode_count, window_size)
+            episode_window_min = min(episode_window)
+            episode_window_max = max(episode_window)
+            std_deviation = stdev(episode_window) if episode_count >= 2 else 0
+
+            line = [episode_count,
+                    episode_rewards[-1],
+                    episode_window_mean,
+                    episode_window_min,
+                    episode_window_max,
+                    std_deviation]
+
+            log_writer.writerow(line)
+
+    def plot(self, episode_rewards):
+        print("Avg reward:",sum(episode_rewards)/len(episode_rewards))
+        plt.plot(episode_rewards)
+        plt.xlabel('Episode')
+        plt.ylabel('Reward')
+        if self.show_plot:
+            plt.show()
+        if self.save_plot:
+            plt.savefig('pong_{}_episodes_{}.png'.format(len(episode_rewards),
+                int(datetime.timestamp(datetime.now()))))
+
+
     def train(self, max_episode=3000, max_step=200):
-        print("Trainning agent for {} episodes".format(episodes))
-        numsteps = []
-        avg_numsteps = []
+        print("Trainning agent for {} episodes".format(max_episode))
         episode_rewards = []
+        log_filename = "data/pong_{}_episodes_{}.csv".format(max_episode,
+                        int(datetime.timestamp(datetime.now())))
+
+        if not os.path.exists(os.path.dirname(log_filename)):
+            os.makedirs(os.path.dirname(log_filename))
+
+        log_file = open(log_filename, mode='w')
+        log_writer = csv.writer(log_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
         for episode in range(max_episode):
             state = env.reset()
             log_probs = []
@@ -124,7 +182,6 @@ class Agent:
             new_state = state
 
             for steps in range(max_step):
-                # env.render()
                 action, log_prob = self.get_action(state)
                 new_state, reward, done, _ = self.env.step(action)
 
@@ -137,22 +194,13 @@ class Agent:
                 if done:
                     self.update_policy(rewards, log_probs)
                     print("episode " + str(episode) + ": " + str(episode_reward))
-                    numsteps.append(steps)
-                    avg_numsteps.append(np.mean(numsteps[-10:]))
                     episode_rewards.append(episode_reward)
+                    self.generate_log(episode_rewards, log_writer, window_size=self.log_window_size)
+                    if episode%self.log_flush_freq == 0:
+                        log_file.flush()
                     break
-        print("Avg reward:",sum(episode_rewards)/max_episode)
-        plt.plot(episode_rewards)
-        plt.xlabel('Episode')
-        plt.ylabel('Reward')
-        if self.show_plot:
-            plt.show()
-        if self.save_plot:
-            plt.savefig('pong_{}_episodes_{}.png'.format(max_episode,
-                int(datetime.timestamp(datetime.now()))))
 
-
-        return episode_rewards
+        self.plot(episode_rewards)
 
     def set_seeds(self, s):
         np.random.seed(s)
@@ -160,8 +208,8 @@ class Agent:
         random.seed(s)
 
 if __name__ == '__main__':
+    config = Config("Pong_REINFORCE.yml")
     env = gym.make("Pong-v0")
-    agent = Agent(env)
-    episodes = int(sys.argv[1])
-    agent.set_seeds(42)
-    rewards = agent.train(episodes,sys.maxsize)
+    agent = Agent(env, config)
+    agent.set_seeds(config.seed)
+    agent.train(config.episodes,config.max_step)
