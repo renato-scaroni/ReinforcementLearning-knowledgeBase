@@ -83,7 +83,7 @@ class Agent:
         self.optimizer = optim.Adam(self.policy_network.parameters(), lr=config.learning_rate)
 
         # Loads model from file if it exists
-        if config.use_loaded_model and os.path.exists(os.path.dirname(self.model_path)):
+        if config.use_loaded_model and os.path.exists(self.model_path):
             checkpoint = torch.load(self.model_path)
             self.policy_network.load_state_dict(checkpoint['model_state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
