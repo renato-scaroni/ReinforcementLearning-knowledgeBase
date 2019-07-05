@@ -13,7 +13,6 @@ from datetime import datetime
 import random
 import atari_wrappers
 from torch.distributions import Categorical
-import gym
 from statistics import stdev
 import csv
 from Pong_REINFORCE_config import Config
@@ -198,7 +197,7 @@ class Agent:
 
             log_writer.writerow(line)
 
-    def reset_file_pointers(log_filename, log_file):
+    def reset_file_pointers(self, log_filename, log_file):
         if not os.path.exists(os.path.dirname(log_filename)):
             os.makedirs(os.path.dirname(log_filename))
 
@@ -228,7 +227,7 @@ class Agent:
         log_filename = "data/pong_{}_episodes_{}.csv".format(max_episode,
                         int(datetime.timestamp(datetime.now())))
 
-        log_writer, log_file = reset_file_pointers(log_filename, None)
+        log_writer, log_file = self.reset_file_pointers(log_filename, None)
 
         for episode in range(max_episode):
             state = env.reset()
@@ -256,7 +255,7 @@ class Agent:
                         try:
                             log_file.flush()
                         except:
-                            log_writer, log_file = reset_file_pointers(log_filename, None)
+                            log_writer, log_file = self.reset_file_pointers(log_filename, None)
                     break
 
         self.plot(episode_rewards)
