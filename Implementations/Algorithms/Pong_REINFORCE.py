@@ -19,6 +19,7 @@ from torch.distributions import Categorical
 GAMMA = 0.9
 WIDTH = 98
 HEIGHT = 80
+NUM_EPISODES = 7500
 
 def save_image(I, imgName):
     # data = np.zeros((h, w, 3), dtype=np.uint8)
@@ -228,7 +229,11 @@ class DiffFrame(gym.ObservationWrapper):
         I, J = DiffFrame.prepro(obs[:,:,0:3]), DiffFrame.prepro(obs[:,:,3:6])
         return ((J-I).astype(np.float).ravel()+1)/2.0
 
-def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True):
+def when_record(episode):
+    return episode == 10 or episode == 100 or episode == 500 or episode % 1000 == 0 or \
+            episode == NUM_EPISODES-1
+
+def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True, monitor=True):
     """Configure environment for DeepMind-style Atari.
     """
     # if episode_life:
@@ -239,15 +244,19 @@ def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale
         # env = atari_wrappers.ClipRewardEnv(env)
     if frame_stack:
         env = atari_wrappers.FrameStack(env, 2)
-    return DiffFrame(env)
+    env = DiffFrame(env)
+    if monitor:
+        env = gym.wrappers.Monitor(env, '/tmp/videos', video_callable=when_record, resume=True)
+    return env
 
 if __name__ == '__main__':
+    episodes = int(sys.argv[1])
+    NUM_EPISODES = episodes
     env = wrap_diff(gym.make("Pong-v0"))
     trand = False if len(sys.argv) > 2 and sys.argv[2] == 0 else True
     print("Using Gym random?", trand)
     base = None if len(sys.argv) <= 3 else sys.argv[3]
     print("Using baseline?", base is not None)
     agent = Agent(env, torch_rand=trand, baseline=base)
-    episodes = int(sys.argv[1])
     agent.set_seeds(42)
     rewards = agent.train(episodes,sys.maxsize)
