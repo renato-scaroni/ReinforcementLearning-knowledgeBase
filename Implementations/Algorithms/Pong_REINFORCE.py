@@ -150,6 +150,18 @@ class Agent:
 
             log_writer.writerow(line)
 
+    def reset_file_pointers(log_filename, log_file):
+        if not os.path.exists(os.path.dirname(log_filename)):
+            os.makedirs(os.path.dirname(log_filename))
+
+        if not log_file == None:
+            log_file.close()
+
+        log_file = open(log_filename, mode='a')
+        log_writer = csv.writer(log_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        return log_writer, log_file
+
+
     def plot(self, episode_rewards):
         print("Avg reward:",sum(episode_rewards)/len(episode_rewards))
         plt.plot(episode_rewards)
@@ -161,18 +173,13 @@ class Agent:
             plt.savefig('pong_{}_episodes_{}.png'.format(len(episode_rewards),
                 int(datetime.timestamp(datetime.now()))))
 
-
     def train(self, max_episode=3000, max_step=200):
         print("Trainning agent for {} episodes".format(max_episode))
         episode_rewards = []
         log_filename = "data/pong_{}_episodes_{}.csv".format(max_episode,
                         int(datetime.timestamp(datetime.now())))
 
-        if not os.path.exists(os.path.dirname(log_filename)):
-            os.makedirs(os.path.dirname(log_filename))
-
-        log_file = open(log_filename, mode='w')
-        log_writer = csv.writer(log_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        log_writer, log_file = reset_file_pointers(log_filename, None)
 
         for episode in range(max_episode):
             state = env.reset()
@@ -197,7 +204,10 @@ class Agent:
                     episode_rewards.append(episode_reward)
                     self.generate_log(episode_rewards, log_writer, window_size=self.log_window_size)
                     if episode%self.log_flush_freq == 0:
-                        log_file.flush()
+                        try:
+                            log_file.flush()
+                        except:
+                            log_writer, log_file = reset_file_pointers(log_filename, None)
                     break
 
         self.plot(episode_rewards)
