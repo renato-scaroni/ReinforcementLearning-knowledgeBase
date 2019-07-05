@@ -57,4 +57,4 @@ class Config:
         try:
             self.baseline = data["baseline"]
         except:
-            self.baseline = False
+            self.baseline = None
