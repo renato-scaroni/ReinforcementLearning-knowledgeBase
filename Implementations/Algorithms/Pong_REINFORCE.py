@@ -255,11 +255,12 @@ class Agent:
                         try:
                             log_file.flush()
                         except:
-                            log_writer, log_file = self.reset_file_pointers(log_filename, None)
+                            pass
                     break
 
         self.plot(episode_rewards)
         self.save_model()
+        log_file.close()
 
     def set_seeds(self, s):
         np.random.seed(s)
