@@ -308,10 +308,9 @@ def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale
     return env
 
 if __name__ == '__main__':
-    episodes = int(sys.argv[1])
-    NUM_EPISODES = episodes
-    env = wrap_diff(gym.make("Pong-v0"))
     config = Config("Pong_REINFORCE.yml")
+    NUM_EPISODES = config.episodes
+    env = wrap_diff(gym.make("Pong-v0"))
     print("Using Gym random?", config.torch_rand)
     print("Using baseline?", config.baseline is not None)
     agent = Agent(env, config)
