@@ -17,6 +17,7 @@ from statistics import stdev
 import csv
 from Pong_REINFORCE_config import Config
 import os
+from itertools import zip_longest
 
 # Constants
 GAMMA = 0.9
@@ -72,6 +73,7 @@ class Agent:
 
         self.torch_rand = config.torch_rand
         self.baseline = config.baseline
+        self.r2g = config.reward_to_go
 
         # Set network to compute using cuda
         print("Looking for GPU support...")
@@ -144,13 +146,13 @@ class Agent:
         g0 = 0
 
         for t in range(len(rewards)):
-            gamma = GAMMA
+            gamma = 1
             Gt = 0
             for r in rewards[t:]:
                 Gt = Gt + gamma * r
                 gamma *= GAMMA
             discounted_rewards.append(Gt)
-            if self.baseline is not None:
+            if self.baseline is not None and not self.r2g:
                 break
         g0 = discounted_rewards[0]
 
@@ -158,11 +160,11 @@ class Agent:
         discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-9) # normalize discounted rewards
 
         policy_gradient = []
-        for log_prob, Gt in zip(log_probs, discounted_rewards):
+        for log_prob, Gt in zip_longest(log_probs, discounted_rewards):
             v = -log_prob
             L.append(v.cpu().detach().numpy())
-            if self.baseline is None:
-                v += Gt
+            if self.baseline is None or self.r2g:
+                v *= Gt
             policy_gradient.append(v)
         policy_gradient = torch.stack(policy_gradient).sum()
         b = 0
@@ -313,6 +315,7 @@ if __name__ == '__main__':
     env = wrap_diff(gym.make("Pong-v0"))
     print("Using Gym random?", config.torch_rand)
     print("Using baseline?", config.baseline is not None)
+    print("Using reward-to-go?", config.reward_to_go)
     agent = Agent(env, config)
     agent.set_seeds(config.seed)
     agent.train(config.episodes,config.max_step)

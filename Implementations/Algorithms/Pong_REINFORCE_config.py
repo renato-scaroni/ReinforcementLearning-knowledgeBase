@@ -58,3 +58,7 @@ class Config:
             self.baseline = data["baseline"]
         except:
             self.baseline = None
+        try:
+            self.reward_to_go = data["reward_to_go"]
+        except:
+            self.reward_to_go = self.baseline is None
