@@ -54,7 +54,7 @@ class PolicyNetwork(nn.Module):
 class Agent:
 
     def __init__(self, env, learning_rate=1e-3, save_plot=True, show_plot=False, torch_rand=True,
-                 baseline=None):
+                 baseline=None, r2g=True):
         self.env = env
         self.show_plot = show_plot
         self.save_plot = save_plot
@@ -64,6 +64,7 @@ class Agent:
 
         self.torch_rand = torch_rand
         self.baseline = baseline
+        self.r2g = r2g
 
         print("Looking for GPU support...")
         using_cuda = torch.cuda.is_available()
@@ -125,13 +126,13 @@ class Agent:
         g0 = 0
 
         for t in range(len(rewards)):
-            gamma = GAMMA
+            gamma = 1
             Gt = 0
             for r in rewards[t:]:
                 Gt = Gt + gamma * r
                 gamma *= GAMMA
             discounted_rewards.append(Gt)
-            if self.baseline is not None:
+            if self.baseline is not None and not self.r2g:
                 break
         g0 = discounted_rewards[0]
 
@@ -139,11 +140,11 @@ class Agent:
         discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-9) # normalize discounted rewards
 
         policy_gradient = []
-        for log_prob, Gt in zip(log_probs, discounted_rewards):
+        for log_prob, Gt in zip_longest(log_probs, discounted_rewards):
             v = -log_prob
             L.append(v.cpu().detach().numpy())
-            if self.baseline is None:
-                v += Gt
+            if self.baseline is None or self.r2g:
+                v *= Gt
             policy_gradient.append(v)
         policy_gradient = torch.stack(policy_gradient).sum()
         b = 0
@@ -257,6 +258,8 @@ if __name__ == '__main__':
     print("Using Gym random?", trand)
     base = None if len(sys.argv) <= 3 else sys.argv[3]
     print("Using baseline?", base is not None)
-    agent = Agent(env, torch_rand=trand, baseline=base)
+    r2g = base is None if len(sys.argv) <= 4 else sys.argv[4] != 0
+    print("Using reward-to-go?", r2g)
+    agent = Agent(env, torch_rand=trand, baseline=base, r2g=r2g)
     agent.set_seeds(42)
     rewards = agent.train(episodes,sys.maxsize)
