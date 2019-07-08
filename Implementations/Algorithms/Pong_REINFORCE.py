@@ -183,6 +183,7 @@ class Agent:
         return g0, b, L
 
     def generate_log(self, episode_rewards, log_writer, window_size=100):
+        line = ""
         if not log_writer == None:
             episode_count = len(episode_rewards)
             episode_window = episode_rewards[-window_size:]
@@ -199,6 +200,8 @@ class Agent:
                     std_deviation]
 
             log_writer.writerow(line)
+
+        return line
 
     def reset_file_pointers(self, log_filename, log_file):
         if not os.path.exists(os.path.dirname(log_filename)):
@@ -251,9 +254,9 @@ class Agent:
 
                 if done:
                     g, b, L = self.update_policy(rewards, log_probs, g, b, L)
-                    print("episode " + str(episode) + ": " + str(episode_reward))
                     episode_rewards.append(episode_reward)
-                    self.generate_log(episode_rewards, log_writer, window_size=self.log_window_size)
+                    log_str = self.generate_log(episode_rewards, log_writer, window_size=self.log_window_size)
+                    print(log_str)
                     if episode%self.log_flush_freq == 0:
                         try:
                             log_file.flush()
