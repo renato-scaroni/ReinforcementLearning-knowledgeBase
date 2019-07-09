@@ -291,7 +291,9 @@ class DiffFrame(gym.ObservationWrapper):
     def observation(self, obs):
         obs = np.array(obs)
         I, J = DiffFrame.prepro(obs[:,:,0:3]), DiffFrame.prepro(obs[:,:,3:6])
-        return ((J-I).astype(np.float).ravel()+1)/2.0
+        diff = ((J+I).astype(np.float).ravel())/2.0
+        # print(diff)
+        return diff
 
 def when_record(episode):
     return episode == 10 or episode == 100 or episode == 500 or episode % 1000 == 0 or \
