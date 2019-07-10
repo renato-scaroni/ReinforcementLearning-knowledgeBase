@@ -26,11 +26,8 @@ HEIGHT = 80
 NUM_EPISODES = 7500
 
 def save_image(I, imgName):
-    # data = np.zeros((h, w, 3), dtype=np.uint8)
-    # data[256, 256] = [255, 0, 0]
     pic = img.fromarray(I)
     pic.save(imgName+".png")
-    # pic.show()
 
 def to_torch(u):
     return torch.from_numpy(u).float().unsqueeze(0)
@@ -166,18 +163,17 @@ class Agent:
             if self.baseline is None or self.r2g:
                 v *= Gt
             policy_gradient.append(v)
-        # policy_gradient = torch.stack(policy_gradient).sum()
+        policy_gradient = torch.stack(policy_gradient).sum()
         b = 0
-        # if self.baseline is not None:
-        #     if self.baseline == 'adaptive':
-        #         b = Agent.adaptive_baseline(last_g, last_b)
-        #     elif self.baseline == 'optimal':
-        #         b = Agent.optimal_baseline(g0, last_g, L, last_log_probs)
-        #     policy_gradient = policy_gradient * (g0 - b)
+        if self.baseline is not None:
+            if self.baseline == 'adaptive':
+                b = Agent.adaptive_baseline(last_g, last_b)
+            elif self.baseline == 'optimal':
+                b = Agent.optimal_baseline(g0, last_g, L, last_log_probs)
+            policy_gradient = policy_gradient * (g0 - b)
 
         self.optimizer.zero_grad()
-        # policy_gradient = policy_gradient.sum().to(self.device)
-        policy_gradient = torch.stack(policy_gradient).sum().to(self.device)
+        policy_gradient = policy_gradient.sum().to(self.device)
         policy_gradient.backward()
         self.optimizer.step()
 
