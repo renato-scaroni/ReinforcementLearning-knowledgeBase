@@ -268,6 +268,7 @@ class Agent:
     def set_seeds(self, s):
         np.random.seed(s)
         torch.manual_seed(s)
+        torch.cuda.manual_seed(s)
         random.seed(s)
 
 class DiffFrame(gym.ObservationWrapper):
