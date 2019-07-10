@@ -21,7 +21,7 @@ from itertools import zip_longest
 
 # Constants
 GAMMA = 0.9
-WIDTH = 98
+WIDTH = 80
 HEIGHT = 80
 NUM_EPISODES = 7500
 FRAMES = 2
@@ -99,14 +99,14 @@ class Agent:
                         }, self.model_path)
 
     def get_action(self, state):
-        probs = self.policy_network(state)
+        probs = self.policy_network(state).cpu()
         if self.torch_rand:
             dist = Categorical(probs=probs)
             highest_prob_action = dist.sample()
             log_prob = dist.log_prob(highest_prob_action)
         else:
             highest_prob_action = np.random.choice(self.num_actions,
-                    p=np.squeeze(probs.cpu().detach().numpy()))
+                                                   p=np.squeeze(probs.detach().numpy()))
             log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
 
         return highest_prob_action, log_prob
@@ -174,7 +174,7 @@ class Agent:
             policy_gradient = policy_gradient * (g0 - b)
 
         self.optimizer.zero_grad()
-        policy_gradient = policy_gradient.sum().to(self.device)
+        policy_gradient = policy_gradient.to(self.device)
         # policy_gradient = torch.stack(policy_gradient).sum().to(self.device)
         policy_gradient.backward()
         self.optimizer.step()
@@ -273,6 +273,23 @@ class Agent:
         torch.cuda.manual_seed(s)
         random.seed(s)
 
+class MinimalFrame(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    @staticmethod
+    def prepro(I):
+        """ prepro 210x160x3 uint8 frame into 7840 (98x80) 1D float vector """
+        I = I[35:195] # crop
+        I = I[::2,::2,0] # downsample by factor of 2
+        I[I == 144] = 0 # erase background (background type 1)
+        I[I == 109] = 0 # erase background (background type 2)
+        I[I != 0] = 1 # everything else (paddles, ball) just set to 1
+        return I
+
+    def observation(self, obs):
+        return MinimalFrame.prepro(np.array(obs)).astype(np.float).ravel()
+
 class DiffFrame(gym.ObservationWrapper):
     def __init__(self, env):
         super().__init__(env)
@@ -280,7 +297,7 @@ class DiffFrame(gym.ObservationWrapper):
     @staticmethod
     def prepro(I):
         """ prepro 210x160x3 uint8 frame into 7840 (98x80) 1D float vector """
-        I = I[:195] # crop
+        I = I[35:195] # crop
         I = I[::2,::2,0] # downsample by factor of 2
         I[I == 144] = 0 # erase background (background type 1)
         I[I == 109] = 0 # erase background (background type 2)
@@ -297,15 +314,12 @@ class ConcatFrame(gym.ObservationWrapper):
         super().__init__(env)
 
     @staticmethod
-    def rgb2gray(I):
-        return np.dot(I, [0.299, 0.587, 0.114])
-
-    @staticmethod
     def prepro(I):
-        I = ConcatFrame.rgb2gray(I)
-        I = I[:195]
-        I = I[::2,::2]
-        I = np.where(I < 100, 1.0, 0.0)
+        I = I[35:195]
+        I = I[::2,::2,0]
+        I[I == 144] = 0
+        I[I == 109] = 0
+        I[I != 0] = 1
         return I
 
     @staticmethod
@@ -323,22 +337,28 @@ def when_record(episode):
     return episode == 10 or episode == 100 or episode == 500 or episode % 1000 == 0 or \
             episode == NUM_EPISODES-1
 
-def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True,
-              monitor=True, diff=False, concat=True):
+def wrap_diff(env, frame, monitor):
     """Configure environment for DeepMind-style Atari.
     """
+    diff = frame == 'diff'
+    concat = frame == 'concat'
     # if episode_life:
         # env = atari_wrappers.EpisodicLifeEnv(env)
     # if scale:
         # env = atari_wrappers.ScaledFloatFrame(env)
     # if clip_rewards:
         # env = atari_wrappers.ClipRewardEnv(env)
-    if frame_stack:
+    if not (diff or concat):
+        env = MinimalFrame(env)
+        print('Minimal frame')
+    else:
         env = atari_wrappers.FrameStack(env, 2)
-    if diff:
-        env = DiffFrame(env)
-    if concat:
-        env = ConcatFrame(env)
+        if diff:
+            env = DiffFrame(env)
+            print('Diff frame')
+        if concat:
+            env = ConcatFrame(env)
+            print('Concat frame')
     if monitor:
         env = gym.wrappers.Monitor(env, '/tmp/videos', video_callable=when_record, resume=True)
     return env
@@ -346,9 +366,12 @@ def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale
 if __name__ == '__main__':
     config = Config("Pong_REINFORCE.yml")
     NUM_EPISODES = config.episodes
-    env = wrap_diff(gym.make("Pong-v0"), concat=config.concat,
-            diff=config.frame_diff, monitor=config.monitor)
-    print("Using Gym random?", config.torch_rand)
+    if config.frame == 'concat':
+        FRAMES=2
+    else:
+        FRAMES=1
+    env = wrap_diff(gym.make("Pong-v0"), config.frame, config.monitor)
+    print("Using Torch random?", config.torch_rand)
     print("Using baseline?", config.baseline is not None)
     print("Using reward-to-go?", config.reward_to_go)
     agent = Agent(env, config)
