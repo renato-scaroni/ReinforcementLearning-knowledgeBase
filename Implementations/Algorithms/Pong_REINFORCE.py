@@ -24,6 +24,7 @@ GAMMA = 0.9
 WIDTH = 98
 HEIGHT = 80
 NUM_EPISODES = 7500
+FRAMES = 2
 
 def save_image(I, imgName):
     # data = np.zeros((h, w, 3), dtype=np.uint8)
@@ -69,7 +70,7 @@ class Agent:
 
         # Create network
         self.num_actions = self.env.action_space.n
-        self.policy_network = PolicyNetwork(WIDTH*HEIGHT, self.env.action_space.n)
+        self.policy_network = PolicyNetwork(FRAMES*WIDTH*HEIGHT, self.env.action_space.n)
 
         self.torch_rand = config.torch_rand
         self.baseline = config.baseline
@@ -166,18 +167,18 @@ class Agent:
             if self.baseline is None or self.r2g:
                 v *= Gt
             policy_gradient.append(v)
-        # policy_gradient = torch.stack(policy_gradient).sum()
+        policy_gradient = torch.stack(policy_gradient).sum()
         b = 0
-        # if self.baseline is not None:
-        #     if self.baseline == 'adaptive':
-        #         b = Agent.adaptive_baseline(last_g, last_b)
-        #     elif self.baseline == 'optimal':
-        #         b = Agent.optimal_baseline(g0, last_g, L, last_log_probs)
-        #     policy_gradient = policy_gradient * (g0 - b)
+        if self.baseline is not None:
+            if self.baseline == 'adaptive':
+                b = Agent.adaptive_baseline(last_g, last_b)
+            elif self.baseline == 'optimal':
+                b = Agent.optimal_baseline(g0, last_g, L, last_log_probs)
+            policy_gradient = policy_gradient * (g0 - b)
 
         self.optimizer.zero_grad()
-        # policy_gradient = policy_gradient.sum().to(self.device)
-        policy_gradient = torch.stack(policy_gradient).sum().to(self.device)
+        policy_gradient = policy_gradient.sum().to(self.device)
+        # policy_gradient = torch.stack(policy_gradient).sum().to(self.device)
         policy_gradient.backward()
         self.optimizer.step()
 
@@ -293,11 +294,39 @@ class DiffFrame(gym.ObservationWrapper):
         I, J = DiffFrame.prepro(obs[:,:,0:3]), DiffFrame.prepro(obs[:,:,3:6])
         return ((J-I).astype(np.float).ravel()+1)/2.0
 
+class ConcatFrame(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    @staticmethod
+    def rgb2gray(I):
+        return np.dot(I, [0.299, 0.587, 0.114])
+
+    @staticmethod
+    def prepro(I):
+        I = ConcatFrame.rgb2gray(I)
+        I = I[:195]
+        I = I[::2,::2]
+        I = np.where(I < 100, 1.0, 0.0)
+        return I
+
+    @staticmethod
+    def prepare(F):
+        I = ConcatFrame.prepro(F[:,:,0:3])
+        J = ConcatFrame.prepro(F[:,:,3:6])
+        C = np.concatenate((I, J))
+        return C.astype(np.float).ravel()
+
+    def observation(self, obs):
+        obs = np.array(obs)
+        return ConcatFrame.prepare(obs)
+
 def when_record(episode):
     return episode == 10 or episode == 100 or episode == 500 or episode % 1000 == 0 or \
             episode == NUM_EPISODES-1
 
-def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True, monitor=True):
+def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True,
+              monitor=True, diff=False, concat=True):
     """Configure environment for DeepMind-style Atari.
     """
     # if episode_life:
@@ -308,7 +337,10 @@ def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale
         # env = atari_wrappers.ClipRewardEnv(env)
     if frame_stack:
         env = atari_wrappers.FrameStack(env, 2)
-    env = DiffFrame(env)
+    if diff:
+        env = DiffFrame(env)
+    if concat:
+        env = ConcatFrame(env)
     if monitor:
         env = gym.wrappers.Monitor(env, '/tmp/videos', video_callable=when_record, resume=True)
     return env
@@ -316,7 +348,7 @@ def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale
 if __name__ == '__main__':
     config = Config("Pong_REINFORCE.yml")
     NUM_EPISODES = config.episodes
-    env = wrap_diff(gym.make("Pong-v0"))
+    env = wrap_diff(gym.make("Pong-v0"), concat=True)
     print("Using Gym random?", config.torch_rand)
     print("Using baseline?", config.baseline is not None)
     print("Using reward-to-go?", config.reward_to_go)
