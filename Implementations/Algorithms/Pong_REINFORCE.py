@@ -27,11 +27,8 @@ NUM_EPISODES = 7500
 FRAMES = 2
 
 def save_image(I, imgName):
-    # data = np.zeros((h, w, 3), dtype=np.uint8)
-    # data[256, 256] = [255, 0, 0]
     pic = img.fromarray(I)
     pic.save(imgName+".png")
-    # pic.show()
 
 def to_torch(u):
     return torch.from_numpy(u).float().unsqueeze(0)
@@ -103,12 +100,12 @@ class Agent:
 
     def get_action(self, state):
         if self.torch_rand:
-            logits = self.policy_network(state)
-            dist = Categorical(logits=logits)
+            probs = self.policy_network(state)
+            dist = Categorical(probs=probs)
             highest_prob_action = dist.sample()
             log_prob = dist.log_prob(highest_prob_action)
         else:
-            probs = self.policy_network(state).cpu()
+            probs = self.policy_network(state)
             highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
             log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
 
@@ -273,6 +270,7 @@ class Agent:
     def set_seeds(self, s):
         np.random.seed(s)
         torch.manual_seed(s)
+        torch.cuda.manual_seed(s)
         random.seed(s)
 
 class DiffFrame(gym.ObservationWrapper):
