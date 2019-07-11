@@ -62,3 +62,11 @@ class Config:
             self.reward_to_go = data["reward_to_go"]
         except:
             self.reward_to_go = self.baseline is None
+        try:
+            self.concat = data["concat"]
+        except:
+            self.concat = True
+        try:
+            self.frame_diff = data["frame_diff"]
+        except:
+            self.frame_diff = False

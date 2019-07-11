@@ -7,3 +7,4 @@ show_plot: False
 seed: 42
 log_flush_freq: 10
 log_window_size: 100
+concat: True
