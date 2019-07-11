@@ -12,6 +12,8 @@ decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 resume = False # resume from previous checkpoint?
 render = False
 
+np.random.seed(42)
+
 # model initialization
 D = 80 * 80 # input dimensionality: 80x80 grid
 if resume:
@@ -122,7 +124,7 @@ while True:
 
     # boring book-keeping
     running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
-    print ('ep number:{} resetting env. episode reward total was {}. running mean: {}'.format(episode_number, reward_sum, running_reward))
+    print ('ep#:{} reward: {} running mean: {}'.format(episode_number, reward_sum, running_reward))
     if episode_number % 100 == 0: pickle.dump(model, open('save.p', 'wb'))
     reward_sum = 0
     observation = env.reset() # reset env
