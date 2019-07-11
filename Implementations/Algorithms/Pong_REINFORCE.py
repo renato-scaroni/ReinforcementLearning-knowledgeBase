@@ -346,7 +346,8 @@ def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale
 if __name__ == '__main__':
     config = Config("Pong_REINFORCE.yml")
     NUM_EPISODES = config.episodes
-    env = wrap_diff(gym.make("Pong-v0"), concat=config.concat, diff=config.frame_diff)
+    env = wrap_diff(gym.make("Pong-v0"), concat=config.concat,
+            diff=config.frame_diff, monitor=config.monitor)
     print("Using Gym random?", config.torch_rand)
     print("Using baseline?", config.baseline is not None)
     print("Using reward-to-go?", config.reward_to_go)

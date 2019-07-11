@@ -70,3 +70,7 @@ class Config:
             self.frame_diff = data["frame_diff"]
         except:
             self.frame_diff = False
+        try:
+            self.monitor = data["monitor"]
+        except:
+            self.monitor = False
