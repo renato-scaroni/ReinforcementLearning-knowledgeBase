@@ -99,14 +99,14 @@ class Agent:
                         }, self.model_path)
 
     def get_action(self, state):
+        probs = self.policy_network(state)
         if self.torch_rand:
-            probs = self.policy_network(state)
             dist = Categorical(probs=probs)
             highest_prob_action = dist.sample()
             log_prob = dist.log_prob(highest_prob_action)
         else:
-            probs = self.policy_network(state)
-            highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
+            highest_prob_action = np.random.choice(self.num_actions,
+                    p=np.squeeze(probs.cpu().detach().numpy()))
             log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
 
         return highest_prob_action, log_prob
