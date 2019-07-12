@@ -1,4 +1,4 @@
-episodes: 10000
+episodes: 500
 model_path: "models/model.torch"
 use_loaded_model: False
 override_model: True
@@ -7,4 +7,6 @@ show_plot: False
 seed: 42
 log_flush_freq: 10
 log_window_size: 100
-concat: True
+learning_rate: 0.0001
+frame: concat
+monitor: True
