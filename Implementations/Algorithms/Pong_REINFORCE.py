@@ -12,21 +12,23 @@ from PIL import Image as img
 from datetime import datetime
 import random
 import atari_wrappers
-
 from torch.distributions import Categorical
+from statistics import stdev
+import csv
+from Pong_REINFORCE_config import Config
+import os
+from itertools import zip_longest
 
 # Constants
 GAMMA = 0.9
 WIDTH = 98
 HEIGHT = 80
 NUM_EPISODES = 7500
+FRAMES = 2
 
 def save_image(I, imgName):
-    # data = np.zeros((h, w, 3), dtype=np.uint8)
-    # data[256, 256] = [255, 0, 0]
     pic = img.fromarray(I)
     pic.save(imgName+".png")
-    # pic.show()
 
 def to_torch(u):
     return torch.from_numpy(u).float().unsqueeze(0)
@@ -53,42 +55,58 @@ class PolicyNetwork(nn.Module):
 
 class Agent:
 
-    def __init__(self, env, learning_rate=1e-3, save_plot=True, show_plot=False, torch_rand=True,
-                 baseline=None, r2g=True):
+    def __init__(self, env, config):
+        # Initialize attributes from parameters
         self.env = env
-        self.show_plot = show_plot
-        self.save_plot = save_plot
+        self.save_plot = config.save_plot
+        self.show_plot = config.show_plot
+        self.log_window_size = config.log_window_size
+        self.log_flush_freq = config.log_flush_freq
+        self.model_path = config.model_path
+        self.override_model = config.override_model
 
+        # Create network
         self.num_actions = self.env.action_space.n
-        self.policy_network = PolicyNetwork(WIDTH*HEIGHT, self.env.action_space.n)
+        self.policy_network = PolicyNetwork(FRAMES*WIDTH*HEIGHT, self.env.action_space.n)
 
-        self.torch_rand = torch_rand
-        self.baseline = baseline
-        self.r2g = r2g
+        self.torch_rand = config.torch_rand
+        self.baseline = config.baseline
+        self.r2g = config.reward_to_go
 
+        # Set network to compute using cuda
         print("Looking for GPU support...")
         using_cuda = torch.cuda.is_available()
         self.device = torch.device("cuda:0" if using_cuda else "cpu")
         print("using cuda:",using_cuda)
         self.policy_network.set_device(self.device)
 
-#         if cuda:
-#             self.policy_network.cuda()
-#             self.device = torch.device("cuda:0") # Uncomment this to run on GPU
-#         else:
-#             self.device = torch.device("cpu")
+        # Initializes the optimizer
+        self.optimizer = optim.Adam(self.policy_network.parameters(), lr=config.learning_rate)
 
-        self.optimizer = optim.Adam(self.policy_network.parameters(), lr=learning_rate)
+        # Loads model from file if it exists
+        if config.use_loaded_model and os.path.exists(self.model_path):
+            checkpoint = torch.load(self.model_path)
+            self.policy_network.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.policy_network.eval()
+
+    def save_model(self):
+        if not os.path.exists(os.path.dirname(self.model_path)) and self.override_model:
+            os.makedirs(os.path.dirname(self.model_path))
+            torch.save({
+                        'model_state_dict': self.policy_network.state_dict(),
+                        'optimizer_state_dict': self.optimizer.state_dict(),
+                        }, self.model_path)
 
     def get_action(self, state):
+        probs = self.policy_network(state)
         if self.torch_rand:
-            logits = self.policy_network(state)
-            dist = Categorical(logits=logits)
+            dist = Categorical(probs=probs)
             highest_prob_action = dist.sample()
             log_prob = dist.log_prob(highest_prob_action)
         else:
-            probs = self.policy_network(state).cpu()
-            highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
+            highest_prob_action = np.random.choice(self.num_actions,
+                    p=np.squeeze(probs.cpu().detach().numpy()))
             log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
 
         return highest_prob_action, log_prob
@@ -140,7 +158,7 @@ class Agent:
         discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-9) # normalize discounted rewards
 
         policy_gradient = []
-        for log_prob, Gt in zip_longest(log_probs, discounted_rewards):
+        for log_prob, Gt in zip(log_probs, discounted_rewards):
             v = -log_prob
             L.append(v.cpu().detach().numpy())
             if self.baseline is None or self.r2g:
@@ -157,17 +175,65 @@ class Agent:
 
         self.optimizer.zero_grad()
         policy_gradient = policy_gradient.sum().to(self.device)
+        # policy_gradient = torch.stack(policy_gradient).sum().to(self.device)
         policy_gradient.backward()
         self.optimizer.step()
 
         return g0, b, L
 
+    def generate_log(self, episode_rewards, log_writer, window_size=100):
+        line = ""
+        if not log_writer == None:
+            episode_count = len(episode_rewards)
+            episode_window = episode_rewards[-window_size:]
+            episode_window_mean = sum(episode_window)/min(episode_count, window_size)
+            episode_window_min = min(episode_window)
+            episode_window_max = max(episode_window)
+            std_deviation = stdev(episode_window) if episode_count >= 2 else 0
+
+            line = [episode_count,
+                    episode_rewards[-1],
+                    episode_window_mean,
+                    episode_window_min,
+                    episode_window_max,
+                    std_deviation]
+
+            log_writer.writerow(line)
+
+        return line
+
+    def reset_file_pointers(self, log_filename, log_file):
+        if not os.path.exists(os.path.dirname(log_filename)):
+            os.makedirs(os.path.dirname(log_filename))
+
+        if not log_file == None:
+            log_file.close()
+
+        log_file = open(log_filename, mode='a')
+        log_writer = csv.writer(log_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        return log_writer, log_file
+
+
+    def plot(self, episode_rewards):
+        print("Avg reward:",sum(episode_rewards)/len(episode_rewards))
+        plt.plot(episode_rewards)
+        plt.xlabel('Episode')
+        plt.ylabel('Reward')
+        if self.show_plot:
+            plt.show()
+        if self.save_plot:
+            plt.savefig('pong_{}_episodes_{}.png'.format(len(episode_rewards),
+                int(datetime.timestamp(datetime.now()))))
+
     def train(self, max_episode=3000, max_step=200):
-        print("Trainning agent for {} episodes".format(episodes))
-        numsteps = []
-        avg_numsteps = []
+        print("Trainning agent for {} episodes".format(max_episode))
         episode_rewards = []
         g, b, L = 0, 0, None
+        log_filename = "data/pong_{}_episodes_{}.csv".format(max_episode,
+                        int(datetime.timestamp(datetime.now())))
+
+        log_writer, log_file = self.reset_file_pointers(log_filename, None)
+
         for episode in range(max_episode):
             state = env.reset()
             log_probs = []
@@ -176,7 +242,6 @@ class Agent:
             new_state = state
 
             for steps in range(max_step):
-                # env.render()
                 action, log_prob = self.get_action(state)
                 new_state, reward, done, _ = self.env.step(action)
 
@@ -188,27 +253,24 @@ class Agent:
 
                 if done:
                     g, b, L = self.update_policy(rewards, log_probs, g, b, L)
-                    print("episode " + str(episode) + ": " + str(episode_reward))
-                    numsteps.append(steps)
-                    avg_numsteps.append(np.mean(numsteps[-10:]))
                     episode_rewards.append(episode_reward)
+                    log_str = self.generate_log(episode_rewards, log_writer, window_size=self.log_window_size)
+                    print(log_str)
+                    if episode%self.log_flush_freq == 0:
+                        try:
+                            log_file.flush()
+                        except:
+                            pass
                     break
-        print("Avg reward:",sum(episode_rewards)/max_episode)
-        plt.plot(episode_rewards)
-        plt.xlabel('Episode')
-        plt.ylabel('Reward')
-        if self.show_plot:
-            plt.show()
-        if self.save_plot:
-            plt.savefig('pong_{}_episodes_{}.png'.format(max_episode,
-                int(datetime.timestamp(datetime.now()))))
 
-
-        return episode_rewards
+        self.plot(episode_rewards)
+        self.save_model()
+        log_file.close()
 
     def set_seeds(self, s):
         np.random.seed(s)
         torch.manual_seed(s)
+        torch.cuda.manual_seed(s)
         random.seed(s)
 
 class DiffFrame(gym.ObservationWrapper):
@@ -230,11 +292,39 @@ class DiffFrame(gym.ObservationWrapper):
         I, J = DiffFrame.prepro(obs[:,:,0:3]), DiffFrame.prepro(obs[:,:,3:6])
         return ((J-I).astype(np.float).ravel()+1)/2.0
 
+class ConcatFrame(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+
+    @staticmethod
+    def rgb2gray(I):
+        return np.dot(I, [0.299, 0.587, 0.114])
+
+    @staticmethod
+    def prepro(I):
+        I = ConcatFrame.rgb2gray(I)
+        I = I[:195]
+        I = I[::2,::2]
+        I = np.where(I < 100, 1.0, 0.0)
+        return I
+
+    @staticmethod
+    def prepare(F):
+        I = ConcatFrame.prepro(F[:,:,0:3])
+        J = ConcatFrame.prepro(F[:,:,3:6])
+        C = np.concatenate((I, J))
+        return C.astype(np.float).ravel()
+
+    def observation(self, obs):
+        obs = np.array(obs)
+        return ConcatFrame.prepare(obs)
+
 def when_record(episode):
     return episode == 10 or episode == 100 or episode == 500 or episode % 1000 == 0 or \
             episode == NUM_EPISODES-1
 
-def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True, monitor=True):
+def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale=True,
+              monitor=True, diff=False, concat=True):
     """Configure environment for DeepMind-style Atari.
     """
     # if episode_life:
@@ -245,21 +335,22 @@ def wrap_diff(env, episode_life=True, clip_rewards=True, frame_stack=True, scale
         # env = atari_wrappers.ClipRewardEnv(env)
     if frame_stack:
         env = atari_wrappers.FrameStack(env, 2)
-    env = DiffFrame(env)
+    if diff:
+        env = DiffFrame(env)
+    if concat:
+        env = ConcatFrame(env)
     if monitor:
         env = gym.wrappers.Monitor(env, '/tmp/videos', video_callable=when_record, resume=True)
     return env
 
 if __name__ == '__main__':
-    episodes = int(sys.argv[1])
-    NUM_EPISODES = episodes
-    env = wrap_diff(gym.make("Pong-v0"))
-    trand = False if len(sys.argv) > 2 and sys.argv[2] == 0 else True
-    print("Using Gym random?", trand)
-    base = None if len(sys.argv) <= 3 else sys.argv[3]
-    print("Using baseline?", base is not None)
-    r2g = base is None if len(sys.argv) <= 4 else sys.argv[4] != 0
-    print("Using reward-to-go?", r2g)
-    agent = Agent(env, torch_rand=trand, baseline=base, r2g=r2g)
-    agent.set_seeds(42)
-    rewards = agent.train(episodes,sys.maxsize)
+    config = Config("Pong_REINFORCE.yml")
+    NUM_EPISODES = config.episodes
+    env = wrap_diff(gym.make("Pong-v0"), concat=config.concat,
+            diff=config.frame_diff, monitor=config.monitor)
+    print("Using Gym random?", config.torch_rand)
+    print("Using baseline?", config.baseline is not None)
+    print("Using reward-to-go?", config.reward_to_go)
+    agent = Agent(env, config)
+    agent.set_seeds(config.seed)
+    agent.train(config.episodes,config.max_step)

@@ -1,0 +1,9 @@
+sys
+torch
+gym
+sys
+numpy
+torch
+matplotlib
+pillow
+gym[atari]
